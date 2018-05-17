@@ -1,0 +1,112 @@
+---
+title: "Devoir 1 : Raphaël Poix & Jeremy Uzan"
+output: html_document
+---
+
+
+#Présentation du problème
+
+Nous avons collecté des données de tests de traitements contre l'anorexie. Le but étant ici de confronter deux méthodes très différentes : la thérapie familiale (FT) et CBT. Les données seront bien sûr comparées à celles de personnes n'ayant suivi aucun traitement (Cont).
+
+```{r pre-traitement, echo=F}
+color = c("5","8","3")
+data_anorexie = read.table(file="DonneesAnorexie.txt")
+summary(data_anorexie)
+
+#convertion L -> kg
+data_anorexie$pre = data_anorexie$pre*0.453
+data_anorexie$post = data_anorexie$post*0.453
+
+data_anorexie_CBT = data_anorexie[data_anorexie$trait=="CBT",]
+data_anorexie_FT = data_anorexie[data_anorexie$trait=="FT",]
+data_anorexie_Cont = data_anorexie[data_anorexie$trait=="Cont",]
+```
+
+
+#Les échantillons sont-ils au départ équitablement distribués ?
+
+Nous voulons être certains que l'analyse ne sera pas biaisée par des échantillons mal choisis, c'est pourquoi nous commençons par vérifier que les patients soient bien répartis avant le début des thérapies.
+
+```{r premier bp, echo=F}
+par(bg="beige")
+plot(data_anorexie$pre~data_anorexie$trait, xlab = "", ylab = "Masse (kg)", col=color)
+
+#créé la légende (cf bas droite)
+#arg1 : place de la légende
+#arg title : titre de la l?gende
+#arg2 : les intitul?s de la l?gende (vecteur)
+#arg3 : pour remplir les carrés de la légende (color : cf plus haut)
+legend("bottomright", inset=.02, title="Taille des ensembles", c( as.character(nrow(data_anorexie_CBT)), as.character(nrow(data_anorexie_Cont)), as.character(nrow(data_anorexie_FT)) ), fill=color, horiz=TRUE, cex=0.8, box.lty=0)
+
+```
+
+Les groupes n'ont pas l'air excellement répartis au début des tests de traitement : les groupes CBT et FT semblent équitablement distribués par contre le groupe Cont semble plus dispersé. Il y a également presque deux fois plus de personnes dans le groupe CBT que dans le groupe Cont : nous sommes loin de l'optimalité.
+
+```{r rep, echo=F}
+#par ==> permet de modifier un peu tout dans l'affichage de nos graphiques etc (couleur en arrière plan, disposition ...)
+par(mfrow = c(1,3),bg="beige")
+
+plot(ecdf(data_anorexie_CBT$pre),main="CBT",xlab = "Masse (kg)", ylab = "Répartition")
+curve(pnorm(x,37,2),add=TRUE)
+
+plot(ecdf(data_anorexie_FT$pre),main="FT",xlab = "Masse (kg)", ylab = "Répartition")
+curve(pnorm(x,37,2),add=TRUE)
+
+plot(ecdf(data_anorexie_Cont$pre),main="Cont",xlab = "Masse (kg)", ylab = "Répartition")
+curve(pnorm(x,37,2),add=TRUE)
+
+```
+
+Néanmoins, les répartitions pour chaque groupe suivent globalement la même tendance. On va donc se satisfaire de cet échantillon ... 
+
+#Les traitements sont-ils efficaces ? L'un est-il meilleur que l'autre ?
+
+Comment ont évolué les poids des différents groupes durant le traitement ?
+
+```{r Evolution totale, echo=F}
+par(bg="beige")
+plot( (data_anorexie$post - data_anorexie$pre)/data_anorexie$pre~data_anorexie$trait, xlab = "Variation globale des poids durant les différents traitements", ylab = "Gain/pertes de masse (kg)", col=color)
+```
+
+On observe que le groupe Cont a tendance à perdre du poids (la médiane est très légèrement sous 0), tandis que ceux suivant la thérapie familiale ou CBT voient leur état s'améliorer (il y a tout de même quelques cas dans lesquels les traitements n'ont pas été efficaces). On remarque également que la thérapie familiale semble bien plus efficace que l'autre traitement : CBT.
+Les deux traitements semblent être efficaces bien que la FT puisse être une meilleure option.
+
+
+#Modélisation
+On va maintenant essayer de trouver une loi pouvant modéliser la fonction de répartition de la prise/perte de poids d'un patient durant les traitements vus ci-dessus. Pour cela, observons ces histogrammes :
+
+```{r gain/perte hist, echo=F}
+#mfrow = c(1,3) => une ligne et 3 colonnes
+par(mfrow = c(1,3),bg="beige",mar=c(5, 4, 4, 2) + 1)
+
+var_CBT = (data_anorexie_CBT$post - data_anorexie_CBT$pre)/data_anorexie_CBT$pre
+hist((var_CBT-mean(var_CBT))/sqrt(var(var_CBT)),main="Fréquence de gain/perte\n de poids centrée\n (CBT)",xlab="", probability=T)
+
+curve(col="red", add=T, dnorm(x,0,1))
+
+var_FT=(data_anorexie_FT$post - data_anorexie_FT$pre)/data_anorexie_FT$pre
+hist((var_FT-mean(var_FT))/sqrt(var(var_FT)), breaks=6,main="Fréquence de gain/perte\n de poids centrée\n (FT)",xlab="",probability=T)
+
+curve(col="red",add=T,dnorm(x,0,1))
+
+var_Cont = (data_anorexie_Cont$post - data_anorexie_Cont$pre)/data_anorexie_Cont$pre
+hist((var_Cont - mean(var_Cont))/sqrt(var(var_Cont)), breaks=6,main="Fréquence de gain/perte\n de poids centrée\n (Cont)",xlab="",freq=F)
+
+curve(col="red",add=T,dnorm(x,0,1))
+
+```
+
+On peut voir que nos histogramme sont bien loin de la courbe d'une loi normale (ici en rouge), il serait donc imprudent d'utiliser cette loi pour notre modélisation. Pour se convaincre du résultat :
+
+```{r loi fin, echo=F}
+par(mfrow = c(1,3), bg="beige")
+qqnorm( (var_FT-mean(var_FT))/ sqrt(var(var_FT)) , main = "FT")
+abline(0,1)
+qqnorm( (var_CBT-mean(var_CBT) / sqrt(var(var_CBT))) , main="CBT")
+abline(0,1)
+qqnorm( (var_Cont-mean(var_Cont)/sqrt(var(var_Cont))) , main="Cont")
+abline(0,1)
+```
+
+Les quantiles théoriques d'une loi normale sont bien loins de ceux de nos échantillons : dans le cas contraire on aurait du observer des points allignés sur la diagonale. On peut donc avec une quasi certitude écarter ce choix de loi pour la modélisation.
+Néanmoins, on peut voir que les résultats du traitement FT semble s'approcher de cette loi, peut-être que l'analyse d'autres échantillons plus complets permettra de vérifier cela.
